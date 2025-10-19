@@ -1,0 +1,56 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: loctur
+      POSTGRES_USER: loctur
+      POSTGRES_PASSWORD: loctur
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  backend:
+    build: ./backend
+    command: python manage.py runserver 0.0.0.0:8000
+    environment:
+      DJANGO_SECRET_KEY: change-me
+      DJANGO_DEBUG: "true"
+      DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1,backend
+      DATABASE_URL: postgresql://loctur:loctur@db:5432/loctur
+      CORS_ALLOWED_ORIGINS: http://localhost:5173
+      CSRF_TRUSTED_ORIGINS: http://localhost:5173
+    volumes:
+      - ./backend:/app
+      - backend_media:/app/media
+    depends_on:
+      - db
+    ports:
+      - "8000:8000"
+
+  frontend:
+    build: ./admin-frontend
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
+
+  telegram-bot:
+    build: ./backend
+    command: python -m telegram_bot.bot
+    environment:
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      BACKEND_BOT_TOKEN: ${BACKEND_BOT_TOKEN:-}
+      BACKEND_API_BASE_URL: http://backend:8000/api/
+      GROUP_POLL_INTERVAL: ${GROUP_POLL_INTERVAL:-30}
+      TRIP_STATUS_FILTER: ${TRIP_STATUS_FILTER:-registration}
+    volumes:
+      - ./backend:/app
+    depends_on:
+      - backend
+
+volumes:
+  pgdata:
+  backend_media:
