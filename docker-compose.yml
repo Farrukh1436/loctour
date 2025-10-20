@@ -31,6 +31,8 @@ services:
       - "8000:8000"
 
   frontend:
+    environment:
+      VITE_YANDEX_MAPS_API_KEY: 7e616e39-643c-45f0-bd52-52e0e8e79b41
     build: ./admin-frontend
     ports:
       - "5173:80"

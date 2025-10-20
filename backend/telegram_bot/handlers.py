@@ -25,6 +25,7 @@ from .keyboards import (
 from .group_invites import send_group_invite
 from .runtime import get_bot_data
 from .states import RegistrationStates
+from . import strings
 
 logger = logging.getLogger(__name__)
 
@@ -56,7 +57,7 @@ async def cmd_start(message: Message, state: FSMContext) -> None:
     await state.clear()
     await _ensure_main_menu(
         message,
-        f"Hi {message.from_user.full_name}!\nChoose an option below to get started.",
+        strings.MAIN_MENU_GREETING.format(name=message.from_user.full_name),
     )
     try:
         trips = await deps.api_client.list_trips(status=deps.config.trips_status_filter)
@@ -67,7 +68,7 @@ async def cmd_start(message: Message, state: FSMContext) -> None:
         return
     summaries = "\n\n".join(format_trip_summary(trip) for trip in trips[:3])
     await message.answer(
-        "Here are the current highlights:\n\n" + summaries,
+        strings.TRIP_HIGHLIGHTS + summaries,
         disable_web_page_preview=True,
     )
 
@@ -75,12 +76,12 @@ async def cmd_start(message: Message, state: FSMContext) -> None:
 @router.message(Command("link_trip"))
 async def cmd_link_trip(message: Message) -> None:
     if message.chat.type not in {"group", "supergroup"}:
-        await message.answer("Run this command inside the Telegram group you want to link.")
+        await message.answer(strings.LINK_TRIP_GROUP_ONLY)
         return
 
     parts = (message.text or "").split(maxsplit=2)
     if len(parts) < 2:
-        await message.answer("Usage: /link_trip <trip_id> [invite_link]")
+        await message.answer(strings.LINK_TRIP_USAGE)
         return
 
     trip_id = parts[1].strip()
@@ -92,11 +93,11 @@ async def cmd_link_trip(message: Message) -> None:
     except APIClientError as exc:
         detail = exc.payload if isinstance(exc.payload, str) else exc.payload.get("detail") if isinstance(exc.payload, dict) else None
         logger.error("Failed to link trip %s to chat %s: %s", trip_id, message.chat.id, exc)
-        await message.answer(detail or "Unable to link this group. Please confirm the trip ID and try again.")
+        await message.answer(detail or strings.UNABLE_TO_LINK_GROUP)
         return
 
     await message.answer(
-        "Group successfully linked to trip. Travelers will now be invited here when confirmed.",
+        strings.GROUP_SUCCESSFULLY_LINKED,
         disable_web_page_preview=True,
     )
 
@@ -104,7 +105,7 @@ async def cmd_link_trip(message: Message) -> None:
 @router.callback_query(F.data == "menu:back")
 async def cb_back(callback: CallbackQuery, state: FSMContext) -> None:
     await state.clear()
-    await _ensure_main_menu(callback.message, "Main menu:")
+    await _ensure_main_menu(callback.message, strings.MAIN_MENU_TITLE)
     await callback.answer()
 
 
@@ -116,13 +117,13 @@ async def cb_register(callback: CallbackQuery, state: FSMContext) -> None:
         trips = await deps.api_client.list_trips(status=deps.config.trips_status_filter)
     except APIClientError as exc:
         logger.error("Failed to fetch trips: %s", exc)
-        await callback.message.answer("Sorry, we could not load trips. Please try again later.")
+        await callback.message.answer(strings.UNABLE_TO_LOAD_TRIPS)
         return
     if not trips:
-        await callback.message.answer("No trips are open for registration right now. Please check back soon.")
+        await callback.message.answer(strings.NO_TRIPS_AVAILABLE)
         return
     await callback.message.answer(
-        "Pick a trip below to start your registration:",
+        strings.PICK_TRIP_TO_REGISTER,
         reply_markup=trips_keyboard(trips),
     )
 
@@ -134,25 +135,29 @@ async def cb_registrations(callback: CallbackQuery, state: FSMContext) -> None:
     traveler = await deps.api_client.get_traveler_by_telegram_id(str(callback.from_user.id))
     if not traveler:
         await callback.message.answer(
-            "You have no registrations yet. Use the menu to book your first trip!",
+            strings.NO_REGISTRATIONS_YET,
             reply_markup=main_menu_keyboard(),
         )
         return
     user_trips = await deps.api_client.list_user_trips(filters={"traveler": traveler["id"]})
     if not user_trips:
         await callback.message.answer(
-            "You have no registrations yet. Use the menu to book your first trip!",
+            strings.NO_REGISTRATIONS_YET,
             reply_markup=main_menu_keyboard(),
         )
         return
 
-    lines = ["Your registrations:"]
+    lines = [strings.YOUR_REGISTRATIONS]
     eligible_buttons: list[list[InlineKeyboardButton]] = []
     for user_trip in user_trips:
         trip = user_trip.get("trip_detail") or {}
         title = trip.get("title", "Trip")
         lines.append(
-            f"• <b>{title}</b>: status={user_trip.get('status')}, payment={user_trip.get('payment_status')}"
+            strings.REGISTRATION_LINE.format(
+                title=title,
+                status=user_trip.get('status'),
+                payment=user_trip.get('payment_status')
+            )
         )
 
         trip_has_group = bool((trip.get("group_chat_id") or trip.get("group_invite_link")))
@@ -164,7 +169,7 @@ async def cb_registrations(callback: CallbackQuery, state: FSMContext) -> None:
             eligible_buttons.append(
                 [
                     InlineKeyboardButton(
-                        text=f"Get invite for {title}",
+                        text=strings.GET_INVITE_FOR.format(title=title),
                         callback_data=f"join:{user_trip['id']}",
                     )
                 ]
@@ -177,7 +182,7 @@ async def cb_registrations(callback: CallbackQuery, state: FSMContext) -> None:
 
     if eligible_buttons:
         await callback.message.answer(
-            "Tap below to receive the group invite link again:",
+            strings.TAP_FOR_INVITE,
             reply_markup=InlineKeyboardMarkup(inline_keyboard=eligible_buttons),
         )
 
@@ -191,7 +196,7 @@ async def cb_select_trip(callback: CallbackQuery, state: FSMContext) -> None:
         trip = await deps.api_client.get_trip(trip_id)
     except APIClientError as exc:
         logger.error("Failed to fetch trip %s: %s", trip_id, exc)
-        await callback.message.answer("Unable to load this trip. Please choose another one.")
+        await callback.message.answer(strings.UNABLE_TO_LOAD_TRIP)
         return
 
     traveler = await deps.api_client.get_traveler_by_telegram_id(str(callback.from_user.id))
@@ -212,7 +217,7 @@ async def cb_select_trip(callback: CallbackQuery, state: FSMContext) -> None:
 
     await callback.message.answer(format_trip_summary(trip), disable_web_page_preview=True)
     await callback.message.answer(
-        f"Let's get your details.\nSend your <b>first name</b> (current: <code>{suggested_first or 'not set'}</code>)."
+        strings.LETS_GET_DETAILS + "\n" + strings.SEND_FIRST_NAME.format(current=suggested_first or strings.NOT_SET)
     )
     await state.set_state(RegistrationStates.waiting_for_first_name)
 
@@ -227,13 +232,13 @@ def _normalize_text(value: str | None) -> str:
 async def on_first_name(message: Message, state: FSMContext) -> None:
     text = _normalize_text(message.text)
     if not text:
-        await message.answer("Please send a valid first name.")
+        await message.answer(strings.PLEASE_SEND_VALID_FIRST_NAME)
         return
     await state.update_data(first_name=text)
     data = await state.get_data()
     suggested = data.get("suggested_last_name", "")
     await message.answer(
-        f"Great! Now send your <b>last name</b> (current: <code>{suggested or 'not set'}</code>). Send '-' to skip.",
+        strings.SEND_LAST_NAME.format(current=suggested or strings.NOT_SET),
     )
     await state.set_state(RegistrationStates.waiting_for_last_name)
 
@@ -245,7 +250,7 @@ async def on_last_name(message: Message, state: FSMContext) -> None:
         text = ""
     await state.update_data(last_name=text)
     await message.answer(
-        "Please share your phone number. You can type it or use the button below.",
+        strings.SHARE_PHONE_NUMBER,
         reply_markup=contact_request_keyboard(),
     )
     await state.set_state(RegistrationStates.waiting_for_phone)
@@ -261,14 +266,14 @@ def _extract_phone(message: Message) -> str:
 async def on_phone(message: Message, state: FSMContext) -> None:
     phone_number = _extract_phone(message)
     if not phone_number:
-        await message.answer("I didn't catch that phone number. Please try again.")
+        await message.answer(strings.PHONE_NOT_CAUGHT)
         return
     if not PHONE_PATTERN.match(phone_number):
-        await message.answer("That doesn't look like a valid phone number. Please re-enter it.")
+        await message.answer(strings.INVALID_PHONE_NUMBER)
         return
     await state.update_data(phone_number=phone_number)
     await message.answer(
-        "Any extra info we should know? (Send '-' to skip.)",
+        strings.EXTRA_INFO_PROMPT,
         reply_markup=remove_keyboard(),
     )
     await state.set_state(RegistrationStates.waiting_for_extra_info)
@@ -307,7 +312,7 @@ async def on_extra_info(message: Message, state: FSMContext) -> None:
         traveler = await _upsert_traveler(message, data, deps)
     except APIClientError as exc:
         logger.error("Failed to upsert traveler: %s", exc)
-        await message.answer("We couldn't save your profile. Please try again later.")
+        await message.answer(strings.COULDNT_SAVE_PROFILE)
         await state.clear()
         return
 
@@ -315,8 +320,10 @@ async def on_extra_info(message: Message, state: FSMContext) -> None:
     trip = data["trip_data"]
     default_price = trip.get("default_price", "0")
     await message.answer(
-        f"Almost done! Send a photo or PDF of your payment receipt for <b>{trip.get('title')}</b> "
-        f"(amount: {default_price}).",
+        strings.PAYMENT_PROOF_PROMPT.format(
+            trip_title=trip.get('title'),
+            amount=default_price
+        ),
     )
     await state.set_state(RegistrationStates.waiting_for_payment_proof)
 
@@ -352,13 +359,13 @@ async def on_payment_proof(message: Message, state: FSMContext) -> None:
     deps = _get_dependencies(message)
     data = await state.get_data()
     if not (message.photo or message.document):
-        await message.answer("Please send a photo or document with the payment proof.")
+        await message.answer(strings.PLEASE_SEND_PAYMENT_PROOF)
         return
 
     try:
         file_bytes, filename, content_type = await _download_payment_file(message)
     except ValueError:
-        await message.answer("Unsupported file type. Send a photo or PDF.")
+        await message.answer(strings.UNSUPPORTED_FILE_TYPE)
         return
 
     payload = {
@@ -379,16 +386,15 @@ async def on_payment_proof(message: Message, state: FSMContext) -> None:
         if isinstance(detail, dict) and "non_field_errors" in detail:
             await message.answer(detail["non_field_errors"][0])
         elif isinstance(detail, dict) and "traveler" in detail:
-            await message.answer("It looks like you're already registered for this trip.")
+            await message.answer(strings.ALREADY_REGISTERED)
         else:
             logger.error("Failed to create user trip: %s", detail)
-            await message.answer("We couldn't submit your registration. Please try again later.")
+            await message.answer(strings.COULDNT_SUBMIT_REGISTRATION)
         await state.clear()
         return
 
     await message.answer(
-        "Thank you! Your payment proof was submitted for review.\n"
-        "You'll receive a message once the admins approve it.",
+        strings.PAYMENT_SUBMITTED,
         reply_markup=main_menu_keyboard(),
     )
     await state.clear()
@@ -396,7 +402,7 @@ async def on_payment_proof(message: Message, state: FSMContext) -> None:
     trip = data["trip_data"]
     try:
         await message.answer(
-            f"Trip summary:\n{format_trip_summary(trip)}",
+            strings.TRIP_SUMMARY.format(summary=format_trip_summary(trip)),
             disable_web_page_preview=True,
         )
     except TelegramForbiddenError:
@@ -444,7 +450,7 @@ async def on_chat_join_request(join_request: ChatJoinRequest) -> None:
     try:
         await join_request.bot.send_message(
             user_id,
-            f"Welcome to {join_request.chat.title}! You're now in the group.",
+            strings.WELCOME_TO_GROUP.format(group_title=join_request.chat.title),
         )
     except TelegramForbiddenError:
         logger.warning("Cannot send welcome message to %s (blocked?).", user_id)
@@ -458,15 +464,15 @@ async def cb_join_trip(callback: CallbackQuery) -> None:
         user_trip = await deps.api_client.get_user_trip(user_trip_id)
     except APIClientError as exc:
         logger.error("Failed to fetch user trip %s for invite request: %s", user_trip_id, exc)
-        await callback.message.answer("We couldn't load your registration. Please try again later.")
+        await callback.message.answer(strings.COULDNT_LOAD_REGISTRATION)
         return
 
     if user_trip.get("status") != "confirmed" or user_trip.get("payment_status") != "confirmed":
-        await callback.message.answer("This registration is not confirmed yet. Please wait for approval.")
+        await callback.message.answer(strings.REGISTRATION_NOT_CONFIRMED)
         return
 
     success, error = await send_group_invite(callback.bot, deps.api_client, user_trip)
     if success:
-        await callback.message.answer("Invite sent! Check our chat history for the link.")
+        await callback.message.answer(strings.INVITE_SENT)
     else:
-        await callback.message.answer(error or "Unable to send the invite link. Please contact support.")
+        await callback.message.answer(error or strings.UNABLE_TO_SEND_INVITE)

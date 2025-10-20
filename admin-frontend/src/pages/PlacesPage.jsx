@@ -10,6 +10,7 @@ import {
   message
 } from "antd";
 import { fetchPlaces, createPlace } from "../api/places.js";
+import YandexMapPicker from "../components/YandexMapPicker.jsx";
 
 export default function PlacesPage() {
   const [places, setPlaces] = useState([]);
@@ -84,11 +85,20 @@ export default function PlacesPage() {
           <Form.Item name="description" label="Description">
             <Input.TextArea rows={3} />
           </Form.Item>
-          <Form.Item name="latitude" label="Latitude">
-            <InputNumber style={{ width: "100%" }} />
+          <Form.Item name="coordinates" label="Location">
+            <YandexMapPicker
+              latitude={form.getFieldValue('latitude')}
+              longitude={form.getFieldValue('longitude')}
+              onLatitudeChange={(value) => form.setFieldValue('latitude', value)}
+              onLongitudeChange={(value) => form.setFieldValue('longitude', value)}
+              height={300}
+            />
           </Form.Item>
-          <Form.Item name="longitude" label="Longitude">
-            <InputNumber style={{ width: "100%" }} />
+          <Form.Item name="latitude" style={{ display: 'none' }}>
+            <InputNumber />
+          </Form.Item>
+          <Form.Item name="longitude" style={{ display: 'none' }}>
+            <InputNumber />
           </Form.Item>
           <Form.Item name="rating" label="Rating">
             <InputNumber min={0} max={5} step={0.1} style={{ width: "100%" }} />

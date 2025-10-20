@@ -10,6 +10,7 @@ from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
 from .api_client import APIClient
 from .runtime import get_bot_data, set_bot_data
+from . import strings
 
 
 async def send_group_invite(
@@ -26,14 +27,14 @@ async def send_group_invite(
 
     telegram_id = traveler.get("telegram_id")
     if not telegram_id:
-        error = "Traveler missing Telegram ID."
+        error = strings.TRAVELER_MISSING_TELEGRAM_ID
         await api_client.report_group_join(user_trip["id"], success=False, error=error)
         return False, error
 
     try:
         user_id = int(telegram_id)
     except (TypeError, ValueError):
-        error = "Invalid Telegram ID stored."
+        error = strings.INVALID_TELEGRAM_ID
         await api_client.report_group_join(user_trip["id"], success=False, error=error)
         return False, error
 
@@ -48,14 +49,14 @@ async def send_group_invite(
     else:
         group_chat_id = trip.get("group_chat_id")
         if not group_chat_id:
-            error = "Trip has no Telegram group configured. Ask an admin to run /link_trip."
+            error = strings.NO_TELEGRAM_GROUP_CONFIGURED
             await api_client.report_group_join(user_trip["id"], success=False, error=error)
             return False, error
 
         try:
             chat_id = int(group_chat_id)
         except (TypeError, ValueError):
-            error = "Trip group chat ID is invalid. Re-run /link_trip."
+            error = strings.INVALID_CHAT_ID
             await api_client.report_group_join(user_trip["id"], success=False, error=error)
             return False, error
 
@@ -86,18 +87,15 @@ async def send_group_invite(
         invite_link = invite.invite_link
 
     markup = InlineKeyboardMarkup(
-        inline_keyboard=[[InlineKeyboardButton(text="Join trip group", url=invite_link)]]
+        inline_keyboard=[[InlineKeyboardButton(text=strings.JOIN_TRIP_GROUP, url=invite_link)]]
     )
 
-    message = (
-        f"🎉 Your payment for <b>{trip.get('title')}</b> is confirmed!\n"
-        "Tap the button below to request access to the trip group."
-    )
+    message = strings.PAYMENT_CONFIRMED_MESSAGE.format(trip_title=trip.get('title'))
 
     try:
         await bot.send_message(user_id, message, reply_markup=markup, disable_web_page_preview=True)
     except TelegramForbiddenError:
-        error = "Bot cannot message the traveler."
+        error = strings.BOT_CANNOT_MESSAGE_TRAVELER
         await api_client.report_group_join(user_trip["id"], success=False, error=error)
         return False, error
 
