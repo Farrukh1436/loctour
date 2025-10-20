@@ -8,9 +8,15 @@ from django.db.models import Count, Sum
 from django.utils import timezone
 from rest_framework import mixins, status, viewsets
 from rest_framework.generics import ListAPIView
-from rest_framework.permissions import IsAdminUser
+from rest_framework.permissions import IsAdminUser, AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.authentication import SessionAuthentication
+from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth.models import User
+from django.views.decorators.csrf import csrf_exempt
+from django.utils.decorators import method_decorator
+from django.middleware.csrf import get_token
 
 from . import filters, models, permissions, serializers
 
@@ -236,3 +242,83 @@ class UserTripGroupJoinView(APIView):
         user_trip.save(update_fields=update_fields)
         serializer = serializers.UserTripSerializer(instance=user_trip, context={"request": request})
         return Response(serializer.data)
+
+
+class LoginView(APIView):
+    """Handle user login for the admin panel."""
+
+    permission_classes = [AllowAny]
+    authentication_classes = [SessionAuthentication]
+
+    def post(self, request):
+        username = request.data.get("username")
+        password = request.data.get("password")
+
+        if not username or not password:
+            return Response(
+                {"detail": "Username and password are required."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        user = authenticate(request, username=username, password=password)
+        if user is not None:
+            if user.is_active and user.is_staff:
+                login(request, user)
+                return Response({
+                    "detail": "Login successful.",
+                    "user": {
+                        "id": user.id,
+                        "username": user.username,
+                        "first_name": user.first_name,
+                        "last_name": user.last_name,
+                        "is_staff": user.is_staff,
+                    }
+                })
+            else:
+                return Response(
+                    {"detail": "Account is not active or does not have admin privileges."},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+        else:
+            return Response(
+                {"detail": "Invalid credentials."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+
+class LogoutView(APIView):
+    """Handle user logout."""
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        logout(request)
+        return Response({"detail": "Logout successful."})
+
+
+class UserView(APIView):
+    """Get current user information."""
+
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [SessionAuthentication]
+
+    def get(self, request):
+        user = request.user
+        return Response({
+            "id": user.id,
+            "username": user.username,
+            "email": user.email,
+            "first_name": user.first_name,
+            "last_name": user.last_name,
+            "is_staff": user.is_staff,
+            "is_active": user.is_active,
+        })
+
+
+class CSRFTokenView(APIView):
+    """Get CSRF token for frontend authentication."""
+
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        return Response({"csrfToken": get_token(request)})

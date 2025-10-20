@@ -22,6 +22,10 @@ router.register("bot-tokens", views.BotTokenViewSet, basename="bot-token")
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/", include(router.urls)),
+    path("api/auth/login/", views.LoginView.as_view(), name="login"),
+    path("api/auth/logout/", views.LogoutView.as_view(), name="logout"),
+    path("api/auth/user/", views.UserView.as_view(), name="user"),
+    path("api/auth/csrf/", views.CSRFTokenView.as_view(), name="csrf-token"),
     path("api/auth/", include("rest_framework.urls")),
     path("api/metrics/overview/", views.OverviewMetricsView.as_view(), name="metrics-overview"),
     path("api/trips/<uuid:pk>/participants/", views.TripParticipantsView.as_view(), name="trip-participants"),

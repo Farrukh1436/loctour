@@ -1,5 +1,8 @@
 import { Routes, Route, Navigate } from "react-router-dom";
+import { Spin } from "antd";
+import { AuthProvider, useAuth } from "./contexts/AuthContext.jsx";
 import AppLayout from "./components/AppLayout.jsx";
+import LoginPage from "./pages/LoginPage.jsx";
 import DashboardPage from "./pages/DashboardPage.jsx";
 import TripsPage from "./pages/TripsPage.jsx";
 import TripDetailPage from "./pages/TripDetailPage.jsx";
@@ -8,7 +11,26 @@ import TravelersPage from "./pages/TravelersPage.jsx";
 import ExpensesPage from "./pages/ExpensesPage.jsx";
 import SettingsPage from "./pages/SettingsPage.jsx";
 
-export default function App() {
+function ProtectedRoutes() {
+  const { isAuthenticated, isLoading } = useAuth();
+
+  if (isLoading) {
+    return (
+      <div style={{
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+        minHeight: "100vh"
+      }}>
+        <Spin size="large" />
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <LoginPage />;
+  }
+
   return (
     <AppLayout>
       <Routes>
@@ -22,5 +44,13 @@ export default function App() {
         <Route path="/settings" element={<SettingsPage />} />
       </Routes>
     </AppLayout>
+  );
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <ProtectedRoutes />
+    </AuthProvider>
   );
 }

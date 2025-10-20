@@ -133,6 +133,19 @@ CORS_ALLOW_CREDENTIALS = True
 
 CSRF_TRUSTED_ORIGINS = [
     origin
-    for origin in os.getenv("CSRF_TRUSTED_ORIGINS", "http://localhost:3000").split(",")
+    for origin in os.getenv("CSRF_TRUSTED_ORIGINS", "http://localhost:3000,http://localhost:5173").split(",")
     if origin
 ]
+
+# Session settings
+SESSION_COOKIE_AGE = 86400  # 24 hours
+SESSION_COOKIE_SECURE = False  # Set to True in production with HTTPS
+SESSION_COOKIE_HTTPONLY = False  # Allow JavaScript access for CSRF
+SESSION_COOKIE_SAMESITE = 'Lax'
+SESSION_SAVE_EVERY_REQUEST = True
+
+# CSRF settings
+CSRF_COOKIE_AGE = 86400
+CSRF_COOKIE_SECURE = False  # Set to True in production with HTTPS
+CSRF_COOKIE_HTTPONLY = False  # Allow JavaScript access
+CSRF_COOKIE_SAMESITE = 'Lax'
