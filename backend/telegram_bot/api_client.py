@@ -110,3 +110,7 @@ class APIClient:
         if invite_link:
             data["invite_link"] = invite_link
         return await self._request("POST", f"trips/{trip_id}/link-group/", data=data)
+
+    async def get_settings(self) -> dict:
+        """Get application settings."""
+        return await self._request("GET", "settings/")

@@ -200,15 +200,42 @@ async def cb_select_trip(callback: CallbackQuery, state: FSMContext) -> None:
         return
 
     traveler = await deps.api_client.get_traveler_by_telegram_id(str(callback.from_user.id))
-    suggested_first = (traveler or {}).get("first_name") or callback.from_user.first_name or ""
-    suggested_last = (traveler or {}).get("last_name") or callback.from_user.last_name or ""
-    suggested_phone = (traveler or {}).get("phone_number") or ""
-    extra_info = (traveler or {}).get("extra_info") or ""
+    
+    # Check if user is already registered
+    if traveler:
+        # Check if user is already registered for this specific trip
+        try:
+            existing_trips = await deps.api_client.list_user_trips(filters={"traveler": traveler["id"], "trip": trip_id})
+            if existing_trips:
+                await callback.message.answer(strings.ALREADY_REGISTERED)
+                await state.clear()
+                return
+        except APIClientError:
+            # If check fails, proceed anyway - will be caught later
+            logger.warning("Failed to check existing registration")
+        
+        # User is registered, skip to payment proof
+        traveler_id = traveler.get("id")
+        await state.update_data(
+            trip_id=trip_id,
+            trip_data=trip,
+            traveler_id=traveler_id,
+        )
+        
+        await callback.message.answer(format_trip_summary(trip), disable_web_page_preview=True)
+        await _ask_for_payment_proof(callback.message, trip, state, deps)
+        return
+    
+    # User is not registered, need to collect registration info
+    suggested_first = callback.from_user.first_name or ""
+    suggested_last = callback.from_user.last_name or ""
+    suggested_phone = ""
+    extra_info = ""
 
     await state.update_data(
         trip_id=trip_id,
         trip_data=trip,
-        traveler_id=(traveler or {}).get("id"),
+        traveler_id=None,
         suggested_first_name=suggested_first,
         suggested_last_name=suggested_last,
         suggested_phone=suggested_phone,
@@ -217,7 +244,7 @@ async def cb_select_trip(callback: CallbackQuery, state: FSMContext) -> None:
 
     await callback.message.answer(format_trip_summary(trip), disable_web_page_preview=True)
     await callback.message.answer(
-        strings.LETS_GET_DETAILS + "\n" + strings.SEND_FIRST_NAME.format(current=suggested_first or strings.NOT_SET)
+        strings.FIRST_TIME_REGISTRATION + "\n\n" + strings.SEND_FIRST_NAME.format(current=suggested_first or strings.NOT_SET)
     )
     await state.set_state(RegistrationStates.waiting_for_first_name)
 
@@ -296,6 +323,33 @@ async def _upsert_traveler(message: Message, data: Dict[str, Any], deps: Depende
     return traveler
 
 
+async def _ask_for_payment_proof(message: Message, trip_data: Dict[str, Any], state: FSMContext, deps: Dependencies) -> None:
+    """Helper function to ask user for payment proof with instructions from settings."""
+    trip_title = trip_data.get('title')
+    default_price = trip_data.get("default_price", "0")
+    
+    # Get payment instructions from settings
+    try:
+        settings = await deps.api_client.get_settings()
+        payment_instructions = settings.get("payment_instructions", "")
+    except APIClientError:
+        logger.warning("Failed to fetch payment instructions from settings")
+        payment_instructions = ""
+    
+    # Format the payment message with instructions
+    payment_message = strings.PAYMENT_PROOF_PROMPT.format(
+        trip_title=trip_title,
+        amount=default_price
+    )
+    
+    # Add payment instructions if available
+    if payment_instructions:
+        payment_message += f"\n\n{payment_instructions}"
+    
+    await message.answer(payment_message)
+    await state.set_state(RegistrationStates.waiting_for_payment_proof)
+
+
 @router.message(RegistrationStates.waiting_for_extra_info)
 async def on_extra_info(message: Message, state: FSMContext) -> None:
     deps = _get_dependencies(message)
@@ -316,16 +370,12 @@ async def on_extra_info(message: Message, state: FSMContext) -> None:
         await state.clear()
         return
 
+    # Save traveler_id to state for payment proof
     await state.update_data(traveler_id=traveler["id"])
+    
+    # Now ask for payment proof
     trip = data["trip_data"]
-    default_price = trip.get("default_price", "0")
-    await message.answer(
-        strings.PAYMENT_PROOF_PROMPT.format(
-            trip_title=trip.get('title'),
-            amount=default_price
-        ),
-    )
-    await state.set_state(RegistrationStates.waiting_for_payment_proof)
+    await _ask_for_payment_proof(message, trip, state, deps)
 
 
 async def _download_payment_file(message: Message) -> tuple[bytes, str, str]:
@@ -384,7 +434,12 @@ async def on_payment_proof(message: Message, state: FSMContext) -> None:
     except APIClientError as exc:
         detail = exc.payload or {}
         if isinstance(detail, dict) and "non_field_errors" in detail:
-            await message.answer(detail["non_field_errors"][0])
+            # Check if it's the duplicate registration error
+            error_msg = detail["non_field_errors"][0]
+            if "unique" in error_msg.lower():
+                await message.answer(strings.ALREADY_REGISTERED)
+            else:
+                await message.answer(error_msg)
         elif isinstance(detail, dict) and "traveler" in detail:
             await message.answer(strings.ALREADY_REGISTERED)
         else:

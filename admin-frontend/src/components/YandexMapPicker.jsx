@@ -28,7 +28,7 @@ const YandexMapPicker = ({
   // Load Yandex Maps API
   useEffect(() => {
     const apiKey = import.meta.env.VITE_YANDEX_MAPS_API_KEY || 'YOUR_YANDEX_API_KEY';
-    
+   
     // Check if API key is properly configured
     if (apiKey === 'YOUR_YANDEX_API_KEY' || !apiKey) {
       setMapError('Yandex Maps API key not configured. Please add VITE_YANDEX_MAPS_API_KEY to your .env file.');

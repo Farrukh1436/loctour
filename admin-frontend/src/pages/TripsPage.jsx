@@ -11,12 +11,15 @@ import {
   DatePicker,
   InputNumber,
   Select,
-  message
+  message,
+  Popconfirm
 } from "antd";
+import { DeleteOutlined, FileOutlined } from "@ant-design/icons";
 import dayjs from "dayjs";
 import { useNavigate } from "react-router-dom";
 import { fetchTrips, createTrip } from "../api/trips.js";
 import { fetchPlaces } from "../api/places.js";
+import { fetchTripFileStats, deleteTripFiles } from "../api/files.js";
 
 const { RangePicker } = DatePicker;
 
@@ -33,6 +36,7 @@ export default function TripsPage() {
   const [trips, setTrips] = useState([]);
   const [places, setPlaces] = useState([]);
   const [createModalVisible, setCreateModalVisible] = useState(false);
+  const [tripFileStats, setTripFileStats] = useState({});
   const [form] = Form.useForm();
   const navigate = useNavigate();
 
@@ -40,8 +44,26 @@ export default function TripsPage() {
     setLoading(true);
     try {
       const [tripResponse, placeResponse] = await Promise.all([fetchTrips(), fetchPlaces()]);
-      setTrips(tripResponse.results ?? tripResponse);
+      const tripsData = tripResponse.results ?? tripResponse;
+      setTrips(tripsData);
       setPlaces(placeResponse.results ?? placeResponse);
+      
+      // Load file stats for each trip
+      const fileStatsPromises = tripsData.map(async (trip) => {
+        try {
+          const stats = await fetchTripFileStats(trip.id);
+          return { tripId: trip.id, stats };
+        } catch (error) {
+          return { tripId: trip.id, stats: null };
+        }
+      });
+      
+      const fileStatsResults = await Promise.all(fileStatsPromises);
+      const fileStatsMap = {};
+      fileStatsResults.forEach(({ tripId, stats }) => {
+        fileStatsMap[tripId] = stats;
+      });
+      setTripFileStats(fileStatsMap);
     } catch (error) {
       message.error("Failed to load trips");
     } finally {
@@ -78,6 +100,16 @@ export default function TripsPage() {
       if (!error.errorFields) {
         message.error("Could not create trip");
       }
+    }
+  };
+
+  const handleDeleteTripFiles = async (tripId) => {
+    try {
+      const result = await deleteTripFiles(tripId);
+      message.success(`Deleted ${result.deleted_count} files, freed ${result.deleted_size_mb} MB`);
+      await loadData(); // Reload to refresh file stats
+    } catch (error) {
+      message.error("Failed to delete trip files");
     }
   };
 
@@ -125,6 +157,52 @@ export default function TripsPage() {
       title: "Participants",
       dataIndex: "participants_count",
       key: "participants"
+    },
+    {
+      title: "Files",
+      key: "files",
+      render: (_, record) => {
+        const stats = tripFileStats[record.id];
+        if (!stats) return "-";
+        return (
+          <Space>
+            <FileOutlined />
+            <span>{stats.total.count}</span>
+            <span style={{ fontSize: "12px", color: "#666" }}>
+              ({stats.total.size_mb} MB)
+            </span>
+          </Space>
+        );
+      }
+    },
+    {
+      title: "Actions",
+      key: "actions",
+      render: (_, record) => {
+        const stats = tripFileStats[record.id];
+        const hasFiles = stats && stats.total.count > 0;
+        
+        return (
+          <Popconfirm
+            title="Delete all trip files?"
+            description="This will delete all payment proofs and place photos for this trip. This action cannot be undone."
+            onConfirm={() => handleDeleteTripFiles(record.id)}
+            okText="Delete"
+            cancelText="Cancel"
+            disabled={!hasFiles}
+          >
+            <Button
+              type="text"
+              danger
+              icon={<DeleteOutlined />}
+              disabled={!hasFiles}
+              size="small"
+            >
+              Delete Files
+            </Button>
+          </Popconfirm>
+        );
+      }
     }
   ];
 

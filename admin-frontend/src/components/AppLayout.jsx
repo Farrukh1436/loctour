@@ -11,7 +11,7 @@ export default function AppLayout({ children }) {
   const handleMenuClick = ({ key }) => {
     if (key === "logout") {
       logout();
-      message.success("Logged out successfully");
+      message.success("Logged out successful");
     }
   };
 

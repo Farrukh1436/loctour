@@ -18,13 +18,14 @@ NO_TRIPS_AVAILABLE = "Hozircha ochiq sayohatlar yo‘q. Keyinroq qayta tekshirib
 UNABLE_TO_LOAD_TRIPS = "Kechirasiz, sayohatlar yuklanmadi. Birozdan so‘ng qayta urinib ko‘ring."
 UNABLE_TO_LOAD_TRIP = "Bu sayohatni yuklab bo‘lmadi. Iltimos, boshqasini tanlang."
 
-# Ro‘yxatdan o‘tish jarayoni
-LETS_GET_DETAILS = "Keling, siz haqingizda ma’lumotlarni to‘playmiz."
+# Ro'yxatdan o'tish jarayoni
+FIRST_TIME_REGISTRATION = "Birinchi marta ro'yxatdan o'tyapsiz. Keling, siz haqingizda ma'lumotlarni to'playmiz."
+LETS_GET_DETAILS = "Keling, siz haqingizda ma'lumotlarni to'playmiz."
 SEND_FIRST_NAME = "Iltimos, <b>ismingizni</b> yuboring (hozirgi: <code>{current}</code>)."
-SEND_LAST_NAME = "Ajoyib! Endi <b>familiyangizni</b> yuboring (hozirgi: <code>{current}</code>). O‘tkazib yuborish uchun '-' yuboring."
+SEND_LAST_NAME = "Ajoyib! Endi <b>familiyangizni</b> yuboring (hozirgi: <code>{current}</code>). O'tkazib yuborish uchun '-' yuboring."
 SHARE_PHONE_NUMBER = "Iltimos, telefon raqamingizni yuboring. Uni yozishingiz yoki quyidagi tugma orqali ulashishingiz mumkin."
 SHARE_PHONE_BUTTON = "Telefon raqamni ulashish"
-EXTRA_INFO_PROMPT = "Qo‘shimcha ma’lumot bormi? (Bo‘lmasa '-' yuboring.)"
+EXTRA_INFO_PROMPT = "Qo'shimcha ma'lumot bormi? (Bo'lmasa '-' yuboring.)"
 
 # Tasdiqlash xabarlari
 PLEASE_SEND_VALID_FIRST_NAME = "Iltimos, haqiqiy ism yuboring."

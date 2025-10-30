@@ -31,3 +31,22 @@ class IsStaffOrBotForWrite(BasePermission):
         if user.__class__.__name__ == "BotUser" and request.auth:
             return True
         return False
+
+
+class IsStaffOrBotReadOnly(BasePermission):
+    """Allow staff full access, bots read-only access."""
+
+    def has_permission(self, request, view):
+        user = request.user
+        if not user or not user.is_authenticated:
+            return False
+
+        # Staff has full access
+        if getattr(user, "is_staff", False):
+            return True
+
+        # Bots have read-only access
+        if request.method in SAFE_METHODS and user.__class__.__name__ == "BotUser" and request.auth:
+            return True
+
+        return False

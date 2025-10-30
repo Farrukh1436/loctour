@@ -18,6 +18,7 @@ router.register("user-trips", views.UserTripViewSet, basename="user-trip")
 router.register("expenses", views.ExpenseViewSet, basename="expense")
 router.register("announcements", views.TripAnnouncementViewSet, basename="announcement")
 router.register("bot-tokens", views.BotTokenViewSet, basename="bot-token")
+router.register("settings", views.SettingsViewSet, basename="settings")
 
 urlpatterns = [
     path("admin/", admin.site.urls),
@@ -27,6 +28,10 @@ urlpatterns = [
     path("api/auth/user/", views.UserView.as_view(), name="user"),
     path("api/auth/csrf/", views.CSRFTokenView.as_view(), name="csrf-token"),
     path("api/auth/", include("rest_framework.urls")),
+    path("api/files/stats/", views.FileStatsView.as_view(), name="file-stats"),
+    path("api/files/bulk-delete/", views.BulkDeleteFilesView.as_view(), name="bulk-delete-files"),
+    path("api/trips/<uuid:pk>/files/stats/", views.TripFileStatsView.as_view(), name="trip-file-stats"),
+    path("api/trips/<uuid:pk>/files/delete/", views.TripDeleteFilesView.as_view(), name="trip-delete-files"),
     path("api/metrics/overview/", views.OverviewMetricsView.as_view(), name="metrics-overview"),
     path("api/trips/<uuid:pk>/participants/", views.TripParticipantsView.as_view(), name="trip-participants"),
     path(
@@ -44,6 +49,7 @@ urlpatterns = [
         views.UserTripGroupJoinView.as_view(),
         name="user-trip-group-join",
     ),
+    path("api/settings/update/", views.SettingsUpdateView.as_view(), name="settings-update"),
 ]
 
 if settings.DEBUG:

@@ -286,3 +286,30 @@ class Expense(TimeStampedModel):
 
     def __str__(self) -> str:
         return f"{self.trip.title} - {self.amount}"
+
+
+class Settings(TimeStampedModel):
+    """Application settings for bot and payment instructions."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    payment_instructions = models.TextField(
+        default="Send payment screenshot to the bot.",
+        help_text="Instructions shown to users for making payments"
+    )
+    support_contacts = models.TextField(
+        blank=True,
+        help_text="Contact information for user support"
+    )
+
+    class Meta:
+        verbose_name = "Settings"
+        verbose_name_plural = "Settings"
+
+    def __str__(self) -> str:
+        return "Application Settings"
+
+    def save(self, *args, **kwargs):
+        # Ensure only one settings instance exists
+        if not self.pk and Settings.objects.exists():
+            raise ValueError("Only one Settings instance is allowed")
+        super().save(*args, **kwargs)

@@ -265,3 +265,16 @@ class TripAnnouncementSerializer(serializers.ModelSerializer):
         if request and request.user.is_authenticated:
             validated_data["sent_by"] = request.user
         return super().create(validated_data)
+
+
+class SettingsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = models.Settings
+        fields = [
+            "id",
+            "payment_instructions",
+            "support_contacts",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
